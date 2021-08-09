@@ -16,6 +16,12 @@ use std::result;
 use std::str::FromStr;
 
 use virtio_devices::{RateLimiterConfig, TokenBucketConfig};
+use virtio_bindings::bindings::virtio_net::{
+    VIRTIO_NET_F_CSUM, VIRTIO_NET_F_CTRL_VQ, VIRTIO_NET_F_GUEST_CSUM, VIRTIO_NET_F_GUEST_ECN,
+    VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6, VIRTIO_NET_F_GUEST_UFO,
+    VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_TSO6, VIRTIO_NET_F_HOST_UFO,
+    VIRTIO_NET_F_MAC, VIRTIO_NET_F_MRG_RXBUF,
+};
 
 pub const DEFAULT_VCPUS: u8 = 1;
 pub const DEFAULT_MEMORY_MB: u64 = 512;
@@ -948,6 +954,8 @@ pub struct NetConfig {
     pub fds: Option<Vec<i32>>,
     #[serde(default)]
     pub rate_limiter_config: Option<RateLimiterConfig>,
+    #[serde(default = "default_netconf_features")]
+    pub features: u64,
 }
 
 fn default_netconfig_tap() -> Option<String> {
@@ -974,6 +982,21 @@ fn default_netconfig_queue_size() -> u16 {
     DEFAULT_QUEUE_SIZE_VUNET
 }
 
+fn default_netconf_features() -> u64 {
+    let f = 1 << VIRTIO_NET_F_CSUM
+            | 1 << VIRTIO_NET_F_GUEST_CSUM
+            | 1 << VIRTIO_NET_F_GUEST_TSO4
+            | 1 << VIRTIO_NET_F_GUEST_TSO6
+            | 1 << VIRTIO_NET_F_GUEST_ECN
+            | 1 << VIRTIO_NET_F_GUEST_UFO
+            | 1 << VIRTIO_NET_F_HOST_TSO4
+            | 1 << VIRTIO_NET_F_HOST_TSO6
+            | 1 << VIRTIO_NET_F_HOST_ECN
+            | 1 << VIRTIO_NET_F_HOST_UFO;
+
+    f
+}
+
 impl Default for NetConfig {
     fn default() -> Self {
         Self {
@@ -991,6 +1014,7 @@ impl Default for NetConfig {
             id: None,
             fds: None,
             rate_limiter_config: None,
+            features: default_netconf_features()
         }
     }
 }
@@ -1025,7 +1049,8 @@ impl NetConfig {
             .add("bw_refill_time")
             .add("ops_size")
             .add("ops_one_time_burst")
-            .add("ops_refill_time");
+            .add("ops_refill_time")
+            .add("tso4");
         parser.parse(net).map_err(Error::ParseNetwork)?;
 
         let tap = parser.get("tap");
@@ -1122,6 +1147,18 @@ impl NetConfig {
             None
         };
 
+        let mut features = 0;
+
+        let tso4 = parser
+            .convert::<Toggle>("tso4")
+            .map_err(Error::ParseNetwork)?
+            .unwrap_or(Toggle(true))
+            .0;
+
+        if tso4 {
+            features |= 1 << VIRTIO_NET_F_GUEST_TSO4;
+        }
+
         let config = NetConfig {
             tap,
             ip,
@@ -1137,6 +1174,7 @@ impl NetConfig {
             id,
             fds,
             rate_limiter_config,
+            features,
         };
         Ok(config)
     }

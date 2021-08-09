@@ -1993,6 +1993,7 @@ impl DeviceManager {
                     id.clone(),
                     net_cfg.mac,
                     vu_cfg,
+                    net_cfg.features,
                     server,
                     self.seccomp_action.clone(),
                 ) {

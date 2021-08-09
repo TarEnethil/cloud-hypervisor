@@ -124,22 +124,14 @@ impl Net {
         id: String,
         mac_addr: MacAddr,
         vu_cfg: VhostUserConfig,
+        features: u64,
         server: bool,
         seccomp_action: SeccompAction,
     ) -> Result<Net> {
         let mut num_queues = vu_cfg.num_queues;
 
         // Filling device and vring features VMM supports.
-        let mut avail_features = 1 << VIRTIO_NET_F_CSUM
-            | 1 << VIRTIO_NET_F_GUEST_CSUM
-            | 1 << VIRTIO_NET_F_GUEST_TSO4
-            | 1 << VIRTIO_NET_F_GUEST_TSO6
-            | 1 << VIRTIO_NET_F_GUEST_ECN
-            | 1 << VIRTIO_NET_F_GUEST_UFO
-            | 1 << VIRTIO_NET_F_HOST_TSO4
-            | 1 << VIRTIO_NET_F_HOST_TSO6
-            | 1 << VIRTIO_NET_F_HOST_ECN
-            | 1 << VIRTIO_NET_F_HOST_UFO
+        let mut avail_features = features.clone()
             | 1 << VIRTIO_NET_F_MRG_RXBUF
             | 1 << VIRTIO_NET_F_CTRL_VQ
             | 1 << VIRTIO_F_RING_EVENT_IDX
